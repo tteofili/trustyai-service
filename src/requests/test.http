@@ -1,0 +1,31 @@
+POST http://localhost:8080/metrics/spd
+Content-Type: application/json
+
+{
+  "protectedAttribute": "gender",
+  "favorableOutcome": 1,
+  "outcomeName": "income",
+  "privilegedAttribute": 1,
+  "unprivilegedAttribute": 0
+}
+
+###
+POST http://localhost:8080/metrics/dir
+Content-Type: application/json
+
+{
+  "protectedAttribute": "gender",
+  "favorableOutcome": 1,
+  "outcomeName": "income",
+  "privilegedAttribute": 1,
+  "unprivilegedAttribute": 0
+}
+
+###
+GET http://localhost:8080/q/openapi
+
+###
+GET http://localhost:8080/metrics/spd/metrics/spd/prometheus
+
+###
+GET http://localhost:8080/q/metrics
