@@ -11,6 +11,9 @@ import javax.ws.rs.core.MediaType;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tag;
+import io.micrometer.core.instrument.Tags;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.kie.trustyai.explainability.metrics.FairnessMetrics;
 import org.kie.trustyai.explainability.model.Dataframe;
@@ -24,7 +27,7 @@ import org.kie.trustyai.service.payloads.dir.DisparateImpactRationResponse;
 import org.kie.trustyai.service.payloads.spd.GroupStatisticalParityDifferenceRequest;
 
 @Path("/metrics/dir")
-public class DisparateImpactRatioEndpoint {
+public class DisparateImpactRatioEndpoint extends AbstractMetricsEndpoint {
 
     @Inject
     ConcreteDataReader dataReader;
@@ -34,6 +37,18 @@ public class DisparateImpactRatioEndpoint {
 
     @ConfigProperty(name = "DIR_THRESHOLD_UPPER", defaultValue = "1.2")
     double thresholdUpper;
+
+    @ConfigProperty(name = "MODEL_NAME")
+    String modelName;
+
+    DisparateImpactRatioEndpoint(MeterRegistry registry) {
+        super(registry);
+    }
+
+    @Override
+    public String getMetricName() {
+        return "dir";
+    }
 
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
@@ -57,7 +72,10 @@ public class DisparateImpactRatioEndpoint {
 
         final MetricThreshold thresholds = new MetricThreshold(thresholdLower, thresholdUpper, dir);
         final DisparateImpactRationResponse dirObj = new DisparateImpactRationResponse(dir, thresholds);
-
+        this.gauge(Tags.of(
+                Tag.of("model", modelName),
+                Tag.of("outcome", request.getOutcomeName()),
+                Tag.of("protected", request.getProtectedAttribute())), dir);
         ObjectMapper mapper = new ObjectMapper();
 
         return mapper.writeValueAsString(dirObj);

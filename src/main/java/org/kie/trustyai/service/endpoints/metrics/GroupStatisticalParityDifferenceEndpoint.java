@@ -27,9 +27,8 @@ import org.kie.trustyai.service.payloads.spd.GroupStatisticalParityDifferenceReq
 import org.kie.trustyai.service.payloads.spd.GroupStatisticalParityDifferenceResponse;
 
 @Path("/metrics/spd")
-public class GroupStatisticalParityDifferenceEndpoint {
+public class GroupStatisticalParityDifferenceEndpoint extends AbstractMetricsEndpoint {
 
-    private final MeterRegistry registry;
     @Inject
     ConcreteDataReader dataReader;
     @ConfigProperty(name = "SPD_THRESHOLD_LOWER", defaultValue = "-0.1")
@@ -40,7 +39,12 @@ public class GroupStatisticalParityDifferenceEndpoint {
     String modelName;
 
     GroupStatisticalParityDifferenceEndpoint(MeterRegistry registry) {
-        this.registry = registry;
+        super(registry);
+    }
+
+    @Override
+    public String getMetricName() {
+        return "spd";
     }
 
     @POST
@@ -65,8 +69,7 @@ public class GroupStatisticalParityDifferenceEndpoint {
 
         final MetricThreshold thresholds = new MetricThreshold(thresholdLower, thresholdUpper, spd);
         final GroupStatisticalParityDifferenceResponse spdObj = new GroupStatisticalParityDifferenceResponse(spd, thresholds);
-        this.registry.gauge("trustyai_spd",
-                Tags.of(
+        this.gauge(Tags.of(
                         Tag.of("model", modelName),
                         Tag.of("outcome", request.getOutcomeName()),
                         Tag.of("protected", request.getProtectedAttribute())), spd);
