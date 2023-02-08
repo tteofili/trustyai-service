@@ -36,6 +36,13 @@ curl -X GET --location "http://localhost:8080/q/openapi"
 
 ### Metrics
 
+Each of the metrics default bounds can be overriden with
+the corresponding environment variable, e.g.
+
+- `SPD_THRESHOLD_LOWER`
+- `SPD_THRESHOLD_UPPER`
+- _etc_
+
 #### Statistical Parity Difference
 
 Get statistical parity difference at `/metrics/spd`
@@ -56,14 +63,20 @@ Returns:
 
 ```http request
 HTTP/1.1 200 OK
-content-length: 85
+content-length: 199
 Content-Type: application/json;charset=UTF-8
 
 {
   "type": "metric",
   "name": "SPD",
-  "value": -0.15670061634672994,
-  "timestamp": 1675771199352
+  "value": -0.2531969309462916,
+  "timestamp": 1675850601910,
+  "thresholds": {
+    "lowerBound": -0.1,
+    "upperBound": 0.1,
+    "outsideBounds": true
+  },
+  "id": "ec435fc6-d037-493b-9efc-4931138d7656"
 }
 ```
 
@@ -83,14 +96,20 @@ curl -X POST --location "http://localhost:8080/metrics/dir" \
 
 ```http request
 HTTP/1.1 200 OK
-content-length: 84
+content-length: 197
 Content-Type: application/json;charset=UTF-8
 
 {
   "type": "metric",
   "name": "DIR",
-  "value": 0.43400672901628895,
-  "timestamp": 1675771400859
+  "value": 0.3333333333333333,
+  "id": "15f87802-30ae-424b-9937-1589489d6b4b",
+  "timestamp": 1675850775317,
+  "thresholds": {
+    "lowerBound": 0.8,
+    "upperBound": 1.2,
+    "outsideBounds": true
+  }
 }
 ```
 
