@@ -1,4 +1,4 @@
-POST http://localhost:8080/metrics/spd
+POST http://{{host}}:8080/metrics/spd
 Content-Type: application/json
 
 {
@@ -10,7 +10,7 @@ Content-Type: application/json
 }
 
 ###
-POST http://localhost:8080/metrics/dir
+POST http://{{host}}:8080/metrics/dir
 Content-Type: application/json
 
 {
@@ -22,10 +22,10 @@ Content-Type: application/json
 }
 
 ###
-GET http://localhost:8080/q/openapi
+GET http://{{host}}:8080/q/openapi
 
 ###
-GET http://localhost:8080/metrics/spd/metrics/spd/prometheus
+GET http://{{host}}:8080/metrics/spd/metrics/spd/prometheus
 
 ###
-GET http://localhost:8080/q/metrics
+GET http://{{host}}:8080/q/metrics

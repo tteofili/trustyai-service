@@ -20,7 +20,7 @@ import org.kie.trustyai.explainability.model.Dataframe;
 import org.kie.trustyai.explainability.model.Output;
 import org.kie.trustyai.explainability.model.Type;
 import org.kie.trustyai.explainability.model.Value;
-import org.kie.trustyai.service.data.readers.ConcreteDataReader;
+import org.kie.trustyai.service.data.readers.MinioReader;
 import org.kie.trustyai.service.payloads.MetricThreshold;
 import org.kie.trustyai.service.payloads.PayloadConverter;
 import org.kie.trustyai.service.payloads.dir.DisparateImpactRationResponse;
@@ -30,7 +30,7 @@ import org.kie.trustyai.service.payloads.spd.GroupStatisticalParityDifferenceReq
 public class DisparateImpactRatioEndpoint extends AbstractMetricsEndpoint {
 
     @Inject
-    ConcreteDataReader dataReader;
+    MinioReader dataReader;
 
     @ConfigProperty(name = "DIR_THRESHOLD_LOWER", defaultValue = "0.8")
     double thresholdLower;
@@ -55,7 +55,7 @@ public class DisparateImpactRatioEndpoint extends AbstractMetricsEndpoint {
     @Produces(MediaType.APPLICATION_JSON)
     public String dir(GroupStatisticalParityDifferenceRequest request) throws JsonProcessingException {
 
-        final Dataframe df = dataReader.getReader().asDataframe();
+        final Dataframe df = dataReader.asDataframe();
 
         final int protectedIndex = df.getColumnNames().indexOf(request.getProtectedAttribute());
 

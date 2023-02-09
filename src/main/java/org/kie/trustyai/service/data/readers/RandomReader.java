@@ -15,7 +15,7 @@ import org.kie.trustyai.explainability.model.SimplePrediction;
 import org.kie.trustyai.explainability.model.Type;
 import org.kie.trustyai.explainability.model.Value;
 
-public class RandomReader extends AbstractDataReader {
+public class RandomReader implements DataReader {
 
     private final Dataframe df;
 

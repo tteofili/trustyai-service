@@ -26,6 +26,52 @@ To run it, use:
 docker-compose compose.yaml up -d # or podman-compose
 ```
 
+### S3 (MinIO)
+
+In order to setup MinIO for local development, first install the [MinIO client](https://github.com/minio/mc) `mc`.
+Run the MinIO server with
+
+```shell
+docker run \
+   -p 9000:9000 \
+   -p 9090:9090 \
+   --name minio \
+   -v ~/minio/trustyai-service/data:/data \
+   -e "MINIO_ROOT_USER=minioadmin" \
+   -e "MINIO_ROOT_PASSWORD=minioadmin" \
+   quay.io/minio/minio server /data --console-address ":9090"
+```
+
+Connect to MinIO using:
+
+```shell
+mc alias set local http://127.0.0.1:9000 minioadmin minioadmin
+```
+
+Now create a bucket, for instance, `inputs`:
+
+```shell
+mc mb local/inputs
+```
+
+Copy a file into the bucket:
+
+```shell
+mc cp data/income-biased-inputs.csv local/inputs
+```
+
+Optionally, check the file was successfully copies:
+
+```shell
+mc ls local/inputs
+```
+
+Which should produce:
+
+```text
+[2023-02-09 23:01:49 GMT]  68KiB income-biased-inputs.csv
+```
+
 ## Endpoints
 
 The OpenAPI schema can be displayed using
