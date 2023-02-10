@@ -2,7 +2,6 @@ package org.kie.trustyai.service.endpoints.metrics;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
-import io.micrometer.core.instrument.Tags;
 
 public abstract class AbstractMetricsEndpoint {
     private final MeterRegistry registry;
