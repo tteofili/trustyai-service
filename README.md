@@ -159,6 +159,50 @@ Content-Type: application/json;charset=UTF-8
 }
 ```
 
+#### Scheduled metrics
+
+In order to generate period measurements for a certain metric, you can send a request to the `/metrics/$METRIC/schedule`.
+Looking at the SPD example above if we want the metric to be calculated periodically we would request:
+
+```shell
+curl -X POST --location "http://localhost:8080/metrics/spd/schedule" \
+    -H "Content-Type: application/json" \
+    -d "{
+          \"protectedAttribute\": \"gender\",
+          \"favorableOutcome\": 1,
+          \"outcomeName\": \"income\",
+          \"privilegedAttribute\": 1,
+          \"unprivilegedAttribute\": 0
+        }"
+```
+
+We would get a response with the schedule id for this specific query:
+
+```http request
+HTTP/1.1 200 OK
+content-length: 78
+Content-Type: application/json;charset=UTF-8
+
+{
+  "requestId": "3281c891-e2a5-4eb3-b05d-7f3831acbb56",
+  "timestamp": 1676031994868
+}
+```
+
+The metrics will now be pushed to Prometheus with the runtime provided `METRICS_SCHEDULE` configuration (e.g. `METRICS_SCHEDULE=10s`)
+which follows the Quarkus syntax.
+
+To stop the periodic calculation you can issue a request to the `/metrics/$METRIC/unschedule` endpoint, with the id of periodic task we want to cancel.
+For instance:
+
+```shell
+curl -X POST --location "http://{{host}}:8080/metrics/spd/unschedule" \
+    -H "Content-Type: application/json" \
+    -d "{
+          \"requestId\": \"3281c891-e2a5-4eb3-b05d-7f3831acbb56\"
+        }"
+```
+
 ### Prometheus
 
 Whenever a metric endpoint is called with a HTTP request, the service also updates
