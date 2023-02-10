@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import javax.inject.Inject;
 import javax.ws.rs.Consumes;
+import javax.ws.rs.DELETE;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
@@ -30,7 +31,9 @@ import org.kie.trustyai.service.payloads.MetricThreshold;
 import org.kie.trustyai.service.payloads.PayloadConverter;
 import org.kie.trustyai.service.payloads.dir.DisparateImpactRationResponse;
 import org.kie.trustyai.service.payloads.scheduler.ScheduleId;
-import org.kie.trustyai.service.payloads.spd.*;
+import org.kie.trustyai.service.payloads.spd.DisparateImpactRatioScheduledRequests;
+import org.kie.trustyai.service.payloads.spd.GroupStatisticalParityDifferenceRequest;
+import org.kie.trustyai.service.payloads.spd.GroupStatisticalParityDifferenceScheduledResponse;
 
 @Path("/metrics/dir")
 public class DisparateImpactRatioEndpoint extends AbstractMetricsEndpoint {
@@ -94,14 +97,15 @@ public class DisparateImpactRatioEndpoint extends AbstractMetricsEndpoint {
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    @Path("/schedule")
-    public String schedule(GroupStatisticalParityDifferenceRequest request) throws JsonProcessingException {
+    @Path("/request")
+    public String createRequest(GroupStatisticalParityDifferenceRequest request) throws JsonProcessingException {
 
         final UUID requestId = UUID.randomUUID();
 
         schedule.getRequests().put(requestId, request);
 
-        final GroupStatisticalParityDifferenceScheduledResponse response = new GroupStatisticalParityDifferenceScheduledResponse(requestId);
+        final GroupStatisticalParityDifferenceScheduledResponse response =
+                new GroupStatisticalParityDifferenceScheduledResponse(requestId);
 
         calculate();
 
@@ -110,11 +114,11 @@ public class DisparateImpactRatioEndpoint extends AbstractMetricsEndpoint {
         return mapper.writeValueAsString(response);
     }
 
-    @POST
+    @DELETE
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.TEXT_PLAIN)
-    @Path("/unschedule")
-    public Response unschedule(ScheduleId request) throws JsonProcessingException {
+    @Path("/request")
+    public Response deleteRequest(ScheduleId request) throws JsonProcessingException {
 
         final UUID id = request.requestId;
 
@@ -128,7 +132,7 @@ public class DisparateImpactRatioEndpoint extends AbstractMetricsEndpoint {
         }
     }
 
-    @Scheduled(every="{METRICS_SCHEDULE}")
+    @Scheduled(every = "{METRICS_SCHEDULE}")
     void calculate() {
         final Dataframe df = dataReader.asDataframe();
         if (!schedule.getRequests().isEmpty()) {

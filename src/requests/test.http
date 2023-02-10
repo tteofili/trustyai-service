@@ -1,4 +1,4 @@
-}POST http://{{host}}:8080/metrics/spd
+POST http://{{host}}:8080/metrics/spd
 Content-Type: application/json
 
 {
@@ -8,8 +8,9 @@ Content-Type: application/json
   "privilegedAttribute": 1,
   "unprivilegedAttribute": 0
 }
+
 ###
-POST http://{{host}}:8080/metrics/spd/schedule
+POST http://{{host}}:8080/metrics/spd/request
 Content-Type: application/json
 
 {
@@ -19,16 +20,17 @@ Content-Type: application/json
   "privilegedAttribute": 1,
   "unprivilegedAttribute": 0
 }
+
 ###
-POST http://{{host}}:8080/metrics/spd/unschedule
+DELETE http://{{host}}:8080/metrics/spd/request
 Content-Type: application/json
 
 {
-  "requestId": "287f100e-7c83-454a-ab98-3d4941c6d716"
+  "requestId": "fc77b708-84f8-47e7-b3e0-d59c56a47153"
 }
+
 ###
-###
-POST http://{{host}}:8080/metrics/dir/schedule
+POST http://{{host}}:8080/metrics/dir/request
 Content-Type: application/json
 
 {
@@ -38,13 +40,15 @@ Content-Type: application/json
   "privilegedAttribute": 1,
   "unprivilegedAttribute": 0
 }
+
 ###
-POST http://{{host}}:8080/metrics/dir/unschedule
+DELETE http://{{host}}:8080/metrics/dir/request
 Content-Type: application/json
 
 {
-  "requestId": "287f100e-7c83-454a-ab98-3d4941c6d716"
+  "requestId": "8d46775b-89e7-414f-8f6c-f3ec4b3f07e7"
 }
+
 ###
 POST http://{{host}}:8080/metrics/dir
 Content-Type: application/json
