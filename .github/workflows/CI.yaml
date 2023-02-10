@@ -1,0 +1,73 @@
+name: TrustyAI Service - CI
+on: [ push, pull_request ]
+jobs:
+  trustyai-service-build:
+    env:
+      MAVEN_OPTS: "-Dhttps.protocols=TLSv1.2 -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=WARN -Dorg.slf4j.simpleLogger.showDateTime=true -Djava.awt.headless=true"
+      MAVEN_ARGS: "-nsu -fae -e"
+    concurrency:
+      group: pull_request-${{ github.event_name }}-${{ github.head_ref }}-${{ matrix.os }}-${{ matrix.java-version }}
+      cancel-in-progress: true
+    timeout-minutes: 45
+    strategy:
+      matrix:
+        # configure with [ 'ubuntu-latest', 'windows-latest' ] to enable Windows builds
+        os: [ 'ubuntu-latest' ]
+        java-version: [ 11 ]
+        maven-version: [ '3.8.6' ]
+      fail-fast: false
+    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.os }} - Java ${{ matrix.java-version }} - Build and Test
+    steps:
+      - name: Disk space report before modification
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        shell: bash
+        run: |
+          echo "Available storage:"
+          df -h
+      # Inspired to maximize-build-space action https://github.com/easimon/maximize-build-space
+      - name: Free disk space (remove dotnet, android and haskell)
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        shell: bash
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+      - name: Disk space report after modification
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        shell: bash
+        run: |
+          echo "Available storage:"
+          df -h
+      - name: Support long paths
+        if: ${{ matrix.os == 'windows-latest' }}
+        shell: bash
+        run: git config --system core.longpaths true
+      - name: Set up JDK + Maven version
+        uses: s4u/setup-maven-action@v1.4.0
+        with:
+          java-version: ${{ matrix.java-version }}
+          maven-version: ${{ matrix.maven-version }}
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Cache Maven Packages
+        uses: actions/cache@v2
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-${{ matrix.java-version }}-maven${{ matrix.maven-version }}
+      - name: Build explainability-core
+        shell: bash
+        run: |
+          git clone https://github.com/trustyai-explainability/trustyai-explainability.git
+          mvn clean install -DskipTests -f trustyai-explainability/pom.xml
+      - name: Compile
+        shell: bash
+        run: mvn clean install -Dformatter.skip=true
+      - name: Publish Test Report
+        if: ${{ always() }}
+        uses: scacap/action-surefire-report@v1.0.10
+        with:
+          skip_publishing: true
+          check_name: Test Results
+          fail_on_test_failures: true
+          fail_if_no_tests: false
