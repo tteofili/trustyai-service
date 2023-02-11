@@ -10,6 +10,46 @@ Content-Type: application/json
 }
 
 ###
+POST http://{{host}}:8080/metrics/spd/request
+Content-Type: application/json
+
+{
+  "protectedAttribute": "gender",
+  "favorableOutcome": 1,
+  "outcomeName": "income",
+  "privilegedAttribute": 1,
+  "unprivilegedAttribute": 0
+}
+
+###
+DELETE http://{{host}}:8080/metrics/spd/request
+Content-Type: application/json
+
+{
+  "requestId": "fc77b708-84f8-47e7-b3e0-d59c56a47153"
+}
+
+###
+POST http://{{host}}:8080/metrics/dir/request
+Content-Type: application/json
+
+{
+  "protectedAttribute": "gender",
+  "favorableOutcome": 1,
+  "outcomeName": "income",
+  "privilegedAttribute": 1,
+  "unprivilegedAttribute": 0
+}
+
+###
+DELETE http://{{host}}:8080/metrics/dir/request
+Content-Type: application/json
+
+{
+  "requestId": "8d46775b-89e7-414f-8f6c-f3ec4b3f07e7"
+}
+
+###
 POST http://{{host}}:8080/metrics/dir
 Content-Type: application/json
 

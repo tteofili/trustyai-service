@@ -10,4 +10,5 @@ export MINIO_INPUT_FILENAME="income-biased-inputs.csv"
 export MINIO_OUTPUT_FILENAME="income-biased-outputs.csv"
 export MINIO_SECRET_KEY="minioadmin"
 export MINIO_ACCESS_KEY="minioadmin"
+export METRICS_SCHEDULE="5s"
 quarkus dev
