@@ -19,12 +19,10 @@ public class PrometheusPublisher {
     private static final Logger LOG = Logger.getLogger(PrometheusPublisher.class);
     private final MeterRegistry registry;
     private final Map<UUID, AtomicDouble> values;
-    private final Map<UUID, Iterable<Tag>> tags;
 
     public PrometheusPublisher(MeterRegistry registry) {
         this.registry = registry;
         this.values = new HashMap<>();
-        this.tags = new HashMap<>();
     }
 
     private AtomicDouble getValue(UUID id) {
@@ -37,15 +35,22 @@ public class PrometheusPublisher {
 
     }
 
+    private Iterable<Tag> generateSPDTags(String modelName, UUID id, GroupStatisticalParityDifferenceRequest request) {
+        return Tags.of(
+                Tag.of("model", modelName),
+                Tag.of("outcome", request.getOutcomeName()),
+                Tag.of("favorable_value", request.getFavorableOutcome().toString()),
+                Tag.of("protected", request.getProtectedAttribute()),
+                Tag.of("privileged", request.getPrivilegedAttribute().toString()),
+                Tag.of("unprivileged", request.getUnprivilegedAttribute().toString()),
+                Tag.of("request", id.toString()));
+    }
+
     public void gaugeSPD(GroupStatisticalParityDifferenceRequest request, String modelName, UUID id, double value) {
 
         values.put(id, new AtomicDouble(value));
 
-        final Iterable<Tag> tags = Tags.of(
-                Tag.of("model", modelName),
-                Tag.of("outcome", request.getOutcomeName()),
-                Tag.of("protected", request.getProtectedAttribute()),
-                Tag.of("request", id.toString()));
+        final Iterable<Tag> tags = generateSPDTags(modelName, id, request);
 
         createOrUpdateGauge("trustyai_spd", tags, id);
 
@@ -56,11 +61,7 @@ public class PrometheusPublisher {
 
         values.put(id, new AtomicDouble(value));
 
-        final Iterable<Tag> tags = Tags.of(
-                Tag.of("model", modelName),
-                Tag.of("outcome", request.getOutcomeName()),
-                Tag.of("protected", request.getProtectedAttribute()),
-                Tag.of("request", id.toString()));
+        final Iterable<Tag> tags = generateSPDTags(modelName, id, request);
 
         createOrUpdateGauge("trustyai_dir", tags, id);
 
