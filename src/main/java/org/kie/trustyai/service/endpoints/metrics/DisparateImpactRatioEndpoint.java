@@ -14,9 +14,6 @@ import javax.ws.rs.core.Response;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Tag;
-import io.micrometer.core.instrument.Tags;
 import io.quarkus.scheduler.Scheduled;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -34,6 +31,7 @@ import org.kie.trustyai.service.payloads.scheduler.ScheduleId;
 import org.kie.trustyai.service.payloads.spd.DisparateImpactRatioScheduledRequests;
 import org.kie.trustyai.service.payloads.spd.GroupStatisticalParityDifferenceRequest;
 import org.kie.trustyai.service.payloads.spd.GroupStatisticalParityDifferenceScheduledResponse;
+import org.kie.trustyai.service.prometheus.PrometheusPublisher;
 
 @Path("/metrics/dir")
 public class DisparateImpactRatioEndpoint extends AbstractMetricsEndpoint {
@@ -41,6 +39,10 @@ public class DisparateImpactRatioEndpoint extends AbstractMetricsEndpoint {
     private static final Logger LOG = Logger.getLogger(DisparateImpactRatioEndpoint.class);
     @Inject
     MinioReader dataReader;
+
+
+    @Inject
+    PrometheusPublisher publisher;
 
     @ConfigProperty(name = "DIR_THRESHOLD_LOWER", defaultValue = "0.8")
     double thresholdLower;
@@ -54,8 +56,23 @@ public class DisparateImpactRatioEndpoint extends AbstractMetricsEndpoint {
     @Inject
     DisparateImpactRatioScheduledRequests schedule;
 
-    DisparateImpactRatioEndpoint(MeterRegistry registry) {
-        super(registry);
+    DisparateImpactRatioEndpoint() {
+        super();
+    }
+
+    private double calculate(Dataframe dataframe, GroupStatisticalParityDifferenceRequest request) {
+        final int protectedIndex = dataframe.getColumnNames().indexOf(request.getProtectedAttribute());
+
+        final Value privilegedAttr = PayloadConverter.convertToValue(request.getPrivilegedAttribute());
+
+        final Dataframe privileged = dataframe.filterByColumnValue(protectedIndex,
+                value -> value.equals(privilegedAttr));
+        final Value unprivilegedAttr = PayloadConverter.convertToValue(request.getUnprivilegedAttribute());
+        final Dataframe unprivileged = dataframe.filterByColumnValue(protectedIndex,
+                value -> value.equals(unprivilegedAttr));
+        final Value favorableOutcomeAttr = PayloadConverter.convertToValue(request.getFavorableOutcome());
+        return FairnessMetrics.groupDisparateImpactRatio(privileged, unprivileged,
+                List.of(new Output(request.getOutcomeName(), Type.NUMBER, favorableOutcomeAttr, 1.0)));
     }
 
     @Override
@@ -70,25 +87,11 @@ public class DisparateImpactRatioEndpoint extends AbstractMetricsEndpoint {
 
         final Dataframe df = dataReader.asDataframe();
 
-        final int protectedIndex = df.getColumnNames().indexOf(request.getProtectedAttribute());
-
-        final Value privilegedAttr = PayloadConverter.convertToValue(request.getPrivilegedAttribute());
-
-        final Dataframe privileged = df.filterByColumnValue(protectedIndex,
-                value -> value.equals(privilegedAttr));
-        final Value unprivilegedAttr = PayloadConverter.convertToValue(request.getUnprivilegedAttribute());
-        final Dataframe unprivileged = df.filterByColumnValue(protectedIndex,
-                value -> value.equals(unprivilegedAttr));
-        final Value favorableOutcomeAttr = PayloadConverter.convertToValue(request.getFavorableOutcome());
-        final double dir = FairnessMetrics.groupDisparateImpactRatio(privileged, unprivileged,
-                List.of(new Output(request.getOutcomeName(), Type.NUMBER, favorableOutcomeAttr, 1.0)));
+        final double dir = calculate(df, request);
 
         final MetricThreshold thresholds = new MetricThreshold(thresholdLower, thresholdUpper, dir);
         final DisparateImpactRationResponse dirObj = new DisparateImpactRationResponse(dir, thresholds);
-        this.gauge(Tags.of(
-                Tag.of("model", modelName),
-                Tag.of("outcome", request.getOutcomeName()),
-                Tag.of("protected", request.getProtectedAttribute())), dir);
+
         ObjectMapper mapper = new ObjectMapper();
 
         return mapper.writeValueAsString(dirObj);
@@ -118,7 +121,7 @@ public class DisparateImpactRatioEndpoint extends AbstractMetricsEndpoint {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.TEXT_PLAIN)
     @Path("/request")
-    public Response deleteRequest(ScheduleId request) throws JsonProcessingException {
+    public Response deleteRequest(ScheduleId request) {
 
         final UUID id = request.requestId;
 
@@ -138,28 +141,8 @@ public class DisparateImpactRatioEndpoint extends AbstractMetricsEndpoint {
         if (!schedule.getRequests().isEmpty()) {
             schedule.getRequests().forEach((uuid, request) -> {
 
-                final int protectedIndex = df.getColumnNames().indexOf(request.getProtectedAttribute());
-
-                final Value privilegedAttr = PayloadConverter.convertToValue(request.getPrivilegedAttribute());
-
-                final Dataframe privileged = df.filterByColumnValue(protectedIndex,
-                        value -> value.equals(privilegedAttr));
-
-                final Value unprivilegedAttr = PayloadConverter.convertToValue(request.getUnprivilegedAttribute());
-
-                final Dataframe unprivileged = df.filterByColumnValue(protectedIndex,
-                        value -> value.equals(unprivilegedAttr));
-
-                final Value favorableOutcomeAttr = PayloadConverter.convertToValue(request.getFavorableOutcome());
-
-                final double dir = FairnessMetrics.groupDisparateImpactRatio(privileged, unprivileged,
-                        List.of(new Output(request.getOutcomeName(), Type.NUMBER, favorableOutcomeAttr, 1.0)));
-
-                this.gauge(Tags.of(
-                        Tag.of("model", modelName),
-                        Tag.of("outcome", request.getOutcomeName()),
-                        Tag.of("protected", request.getProtectedAttribute())), dir);
-                LOG.info("Scheduled request for DIR id=" + uuid + ", value=" + dir);
+                final double dir = calculate(df, request);
+                publisher.gaugeDIR(request, modelName, uuid, dir);
             });
         }
     }

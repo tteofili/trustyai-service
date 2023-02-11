@@ -14,9 +14,6 @@ import javax.ws.rs.core.Response;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Tag;
-import io.micrometer.core.instrument.Tags;
 import io.quarkus.scheduler.Scheduled;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -34,6 +31,7 @@ import org.kie.trustyai.service.payloads.spd.GroupStatisticalParityDifferenceReq
 import org.kie.trustyai.service.payloads.spd.GroupStatisticalParityDifferenceResponse;
 import org.kie.trustyai.service.payloads.spd.GroupStatisticalParityDifferenceScheduledRequests;
 import org.kie.trustyai.service.payloads.spd.GroupStatisticalParityDifferenceScheduledResponse;
+import org.kie.trustyai.service.prometheus.PrometheusPublisher;
 
 @Path("/metrics/spd")
 public class GroupStatisticalParityDifferenceEndpoint extends AbstractMetricsEndpoint {
@@ -41,6 +39,10 @@ public class GroupStatisticalParityDifferenceEndpoint extends AbstractMetricsEnd
     private static final Logger LOG = Logger.getLogger(GroupStatisticalParityDifferenceEndpoint.class);
     @Inject
     MinioReader dataReader;
+
+    @Inject
+    PrometheusPublisher publisher;
+
     @ConfigProperty(name = "SPD_THRESHOLD_LOWER", defaultValue = "-0.1")
     double thresholdLower;
     @ConfigProperty(name = "SPD_THRESHOLD_UPPER", defaultValue = "0.1")
@@ -51,13 +53,28 @@ public class GroupStatisticalParityDifferenceEndpoint extends AbstractMetricsEnd
     @Inject
     GroupStatisticalParityDifferenceScheduledRequests schedule;
 
-    GroupStatisticalParityDifferenceEndpoint(MeterRegistry registry) {
-        super(registry);
+    GroupStatisticalParityDifferenceEndpoint() {
+        super();
     }
 
     @Override
     public String getMetricName() {
         return "spd";
+    }
+
+    public double calculate(Dataframe dataframe, GroupStatisticalParityDifferenceRequest request) {
+        final int protectedIndex = dataframe.getColumnNames().indexOf(request.getProtectedAttribute());
+
+        final Value privilegedAttr = PayloadConverter.convertToValue(request.getPrivilegedAttribute());
+
+        final Dataframe privileged = dataframe.filterByColumnValue(protectedIndex,
+                value -> value.equals(privilegedAttr));
+        final Value unprivilegedAttr = PayloadConverter.convertToValue(request.getUnprivilegedAttribute());
+        final Dataframe unprivileged = dataframe.filterByColumnValue(protectedIndex,
+                value -> value.equals(unprivilegedAttr));
+        final Value favorableOutcomeAttr = PayloadConverter.convertToValue(request.getFavorableOutcome());
+        return FairnessMetrics.groupStatisticalParityDifference(privileged, unprivileged,
+                List.of(new Output(request.getOutcomeName(), Type.NUMBER, favorableOutcomeAttr, 1.0)));
     }
 
     @POST
@@ -67,27 +84,12 @@ public class GroupStatisticalParityDifferenceEndpoint extends AbstractMetricsEnd
 
         final Dataframe df = dataReader.asDataframe();
 
-        final int protectedIndex = df.getColumnNames().indexOf(request.getProtectedAttribute());
-
-        final Value privilegedAttr = PayloadConverter.convertToValue(request.getPrivilegedAttribute());
-
-        final Dataframe privileged = df.filterByColumnValue(protectedIndex,
-                value -> value.equals(privilegedAttr));
-        final Value unprivilegedAttr = PayloadConverter.convertToValue(request.getUnprivilegedAttribute());
-        final Dataframe unprivileged = df.filterByColumnValue(protectedIndex,
-                value -> value.equals(unprivilegedAttr));
-        final Value favorableOutcomeAttr = PayloadConverter.convertToValue(request.getFavorableOutcome());
-        final double spd = FairnessMetrics.groupStatisticalParityDifference(privileged, unprivileged,
-                List.of(new Output(request.getOutcomeName(), Type.NUMBER, favorableOutcomeAttr, 1.0)));
+        final double spd = calculate(df, request);
 
         final MetricThreshold thresholds = new MetricThreshold(thresholdLower, thresholdUpper, spd);
         final GroupStatisticalParityDifferenceResponse spdObj = new GroupStatisticalParityDifferenceResponse(spd, thresholds);
-        this.gauge(Tags.of(
-                Tag.of("model", modelName),
-                Tag.of("outcome", request.getOutcomeName()),
-                Tag.of("protected", request.getProtectedAttribute())), spd);
-        ObjectMapper mapper = new ObjectMapper();
 
+        ObjectMapper mapper = new ObjectMapper();
         return mapper.writeValueAsString(spdObj);
     }
 
@@ -115,7 +117,7 @@ public class GroupStatisticalParityDifferenceEndpoint extends AbstractMetricsEnd
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.TEXT_PLAIN)
     @Path("/request")
-    public Response deleteRequest(ScheduleId request) throws JsonProcessingException {
+    public Response deleteRequest(ScheduleId request) {
 
         final UUID id = request.requestId;
 
@@ -135,28 +137,9 @@ public class GroupStatisticalParityDifferenceEndpoint extends AbstractMetricsEnd
         if (!schedule.getRequests().isEmpty()) {
             schedule.getRequests().forEach((uuid, request) -> {
 
-                final int protectedIndex = df.getColumnNames().indexOf(request.getProtectedAttribute());
+                final double spd = calculate(df, request);
 
-                final Value privilegedAttr = PayloadConverter.convertToValue(request.getPrivilegedAttribute());
-
-                final Dataframe privileged = df.filterByColumnValue(protectedIndex,
-                        value -> value.equals(privilegedAttr));
-
-                final Value unprivilegedAttr = PayloadConverter.convertToValue(request.getUnprivilegedAttribute());
-
-                final Dataframe unprivileged = df.filterByColumnValue(protectedIndex,
-                        value -> value.equals(unprivilegedAttr));
-
-                final Value favorableOutcomeAttr = PayloadConverter.convertToValue(request.getFavorableOutcome());
-
-                final double spd = FairnessMetrics.groupStatisticalParityDifference(privileged, unprivileged,
-                        List.of(new Output(request.getOutcomeName(), Type.NUMBER, favorableOutcomeAttr, 1.0)));
-
-                this.gauge(Tags.of(
-                        Tag.of("model", modelName),
-                        Tag.of("outcome", request.getOutcomeName()),
-                        Tag.of("protected", request.getProtectedAttribute())), spd);
-                LOG.info("Scheduled request for SPD id=" + uuid + ", value=" + spd);
+                publisher.gaugeSPD(request, modelName, uuid, spd);
             });
         }
     }

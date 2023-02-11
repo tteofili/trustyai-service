@@ -30,6 +30,17 @@ Content-Type: application/json
 }
 
 ###
+POST http://{{host}}:8080/metrics/dir
+Content-Type: application/json
+
+{
+  "protectedAttribute": "gender",
+  "favorableOutcome": 1,
+  "outcomeName": "income",
+  "privilegedAttribute": 1,
+  "unprivilegedAttribute": 0
+}
+###
 POST http://{{host}}:8080/metrics/dir/request
 Content-Type: application/json
 
@@ -46,7 +57,7 @@ DELETE http://{{host}}:8080/metrics/dir/request
 Content-Type: application/json
 
 {
-  "requestId": "8d46775b-89e7-414f-8f6c-f3ec4b3f07e7"
+  "requestId": "f3297e6f-7a24-4de0-ad2c-b8aa9a03b5a1"
 }
 
 ###
