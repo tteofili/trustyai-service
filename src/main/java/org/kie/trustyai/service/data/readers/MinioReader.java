@@ -2,7 +2,7 @@ package org.kie.trustyai.service.data.readers;
 
 import io.minio.GetObjectArgs;
 import io.minio.MinioClient;
-import io.minio.errors.MinioException;
+import io.minio.errors.*;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.kie.trustyai.explainability.model.Dataframe;
@@ -11,11 +11,15 @@ import org.kie.trustyai.explainability.model.PredictionOutput;
 import org.kie.trustyai.service.data.readers.utils.CSVUtils;
 
 import javax.inject.Singleton;
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Singleton
 public class MinioReader implements DataReader {
@@ -51,18 +55,18 @@ public class MinioReader implements DataReader {
 
     public Dataframe parseData() {
         try {
-            final InputStream is = minioClient.getObject(
+            final String is = new String(minioClient.getObject(
                     GetObjectArgs.builder()
                             .bucket(this.bucketName)
                             .object(this.inputFilename)
-                            .build());
+                            .build()).readAllBytes(), StandardCharsets.UTF_8);
             final List<PredictionInput> predictionInputs = CSVUtils.parseInputs(is);
 
-            final InputStream os = minioClient.getObject(
+            final String os = new String(minioClient.getObject(
                     GetObjectArgs.builder()
                             .bucket(this.bucketName)
                             .object(this.outputFilename)
-                            .build());
+                            .build()).readAllBytes(), StandardCharsets.UTF_8);
             final List<PredictionOutput> predictionOutputs = CSVUtils.parseOutputs(os);
             return Dataframe.createFrom(predictionInputs, predictionOutputs);
 

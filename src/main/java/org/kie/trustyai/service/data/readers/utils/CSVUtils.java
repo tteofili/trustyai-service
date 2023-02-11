@@ -3,8 +3,11 @@ package org.kie.trustyai.service.data.readers.utils;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
@@ -20,51 +23,66 @@ import org.kie.trustyai.explainability.model.Value;
 
 
 public class CSVUtils {
-    public static List<PredictionInput> parseInputs(InputStream in) throws IOException {
-        final List<PredictionInput> predictionInputs = new ArrayList<>();
-        CSVParser parser = new CSVParser(new InputStreamReader(in), CSVFormat.DEFAULT);
-        List<String> header = parser.getHeaderNames();
-        List<CSVRecord> records = parser.getRecords();
-        for (CSVRecord record : records) {
-            final List<Feature> features = new ArrayList<>();
-            for (int i = 0; i < record.size(); i++) {
-                final String name = header.get(i);
-                if (NumberUtils.isParsable(record.get(i))) {
-                    if (record.get(i).contains(".")) {
-                        features.add(FeatureFactory.newNumericalFeature(name, Double.valueOf(record.get(i))));
-                    } else {
-                        features.add(FeatureFactory.newNumericalFeature(name, Integer.valueOf(record.get(i))));
-                    }
+
+    public static List<Class<?>> getSchema(CSVRecord sample) {
+        return sample.stream().map(entry -> {
+            if (NumberUtils.isParsable(entry)) {
+                if (entry.contains(".")) {
+                    return Double.class;
                 } else {
-                    features.add(FeatureFactory.newCategoricalFeature(name, record.get(i)));
+                    return Integer.class;
                 }
+            } else {
+                return String.class;
             }
-            predictionInputs.add(new PredictionInput(features));
-        }
-        return predictionInputs;
+        }).collect(Collectors.toList());
     }
 
-    public static List<PredictionOutput> parseOutputs(InputStream in) throws IOException {
-        final List<PredictionOutput> predictionOutputs = new ArrayList<>();
-        CSVParser parser = new CSVParser(new InputStreamReader(in), CSVFormat.DEFAULT);
-        List<String> header = parser.getHeaderNames();
-        List<CSVRecord> records = parser.getRecords();
-        for (CSVRecord record : records) {
-            final List<Output> outputs = new ArrayList<>();
-            for (int i = 0; i < record.size(); i++) {
+    public static List<PredictionInput> parseInputs(String in) throws IOException {
+        CSVParser parser = CSVFormat.DEFAULT.withHeader().parse(new StringReader(in));
+        final List<String> header = parser.getHeaderNames();
+        final List<Class<?>> schema = new ArrayList<>();
+        return parser.stream().map(entry -> {
+            if (schema.isEmpty()) {
+                schema.addAll(getSchema(entry));
+            }
+            final List<Feature> features = new ArrayList<>();
+            for (int i = 0; i < entry.size(); i++) {
                 final String name = header.get(i);
-                if (NumberUtils.isParsable(record.get(i))) {
-                    if (record.get(i).contains(".")) {
-                        outputs.add(new Output(name, Type.NUMBER, new Value(Double.valueOf(record.get(i))), 1.0));
-                    } else {
-                        outputs.add(new Output(name, Type.NUMBER, new Value(Integer.valueOf(record.get(i))), 1.0));
-                    }
+                final Class<?> type = schema.get(i);
+                if (type.equals(Double.class)) {
+                    features.add(FeatureFactory.newNumericalFeature(name, Double.valueOf(entry.get(i))));
+                } else if (type.equals(Integer.class)) {
+                    features.add(FeatureFactory.newNumericalFeature(name, Integer.valueOf(entry.get(i))));
                 } else {
-                    outputs.add(new Output(name, Type.CATEGORICAL, new Value(record.get(i)), 1.0));
+                    features.add(FeatureFactory.newCategoricalFeature(name, entry.get(i)));
                 }
             }
-            predictionOutputs.add(new PredictionOutput(outputs));
-        }
-        return predictionOutputs;
+            return new PredictionInput(features);
+        }).collect(Collectors.toList());
+    }
+
+    public static List<PredictionOutput> parseOutputs(String in) throws IOException {
+        CSVParser parser = CSVFormat.DEFAULT.withHeader().parse(new StringReader(in));
+        final List<String> header = parser.getHeaderNames();
+        final List<Class<?>> schema = new ArrayList<>();
+        return parser.stream().map(entry -> {
+            if (schema.isEmpty()) {
+                schema.addAll(getSchema(entry));
+            }
+            final List<Output> outputs = new ArrayList<>();
+            for (int i = 0; i < entry.size(); i++) {
+                final String name = header.get(i);
+                final Class<?> type = schema.get(i);
+                if (type.equals(Double.class)) {
+                    outputs.add(new Output(name, Type.NUMBER, new Value(Double.valueOf(entry.get(i))), 1.0));
+                } else if (type.equals(Integer.class)) {
+                    outputs.add(new Output(name, Type.NUMBER, new Value(Integer.valueOf(entry.get(i))), 1.0));
+                } else {
+                    outputs.add(new Output(name, Type.CATEGORICAL, new Value(entry.get(i)), 1.0));
+                }
+            }
+            return new PredictionOutput(outputs);
+        }).collect(Collectors.toList());
     }
 }

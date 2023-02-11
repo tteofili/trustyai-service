@@ -13,7 +13,7 @@ public class CSVReader implements DataReader {
 
     private Dataframe df;
 
-    public CSVReader(InputStream inputs, InputStream outputs) throws IOException {
+    public CSVReader(String inputs, String outputs) throws IOException {
         final List<PredictionInput> predictionInputs = CSVUtils.parseInputs(inputs);
         final List<PredictionOutput> predictionOutputs = CSVUtils.parseOutputs(outputs);
         this.df = Dataframe.createFrom(predictionInputs, predictionOutputs);
