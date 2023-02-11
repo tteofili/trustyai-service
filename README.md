@@ -10,12 +10,21 @@ Build the container image with
 mvn clean install
 ```
 
+Configure the MinIO container (by pre-populating it with data, according to the [steps below](#s3-minio))
 and run the container using (either `docker`, `podman`):
 
 ```shell
 docker run -p 8080:8080 --env STORAGE_FORMAT=CSV \
     --env MODEL_NAME=example \
     --env KSERVE_TARGET=localhost \
+    --env STORAGE_FORMAT="MINIO" \
+    --env MINIO_BUCKET_NAME="inputs" \
+    --env MINIO_ENDPOINT="http://localhost:9000" \
+    --env MINIO_INPUT_FILENAME="income-biased-inputs.csv" \
+    --env MINIO_OUTPUT_FILENAME="income-biased-outputs.csv" \
+    --env MINIO_SECRET_KEY="minioadmin" \
+    --env MINIO_ACCESS_KEY="minioadmin" \
+    --env METRICS_SCHEDULE="5s" \
     trustyai/trustyai-service:1.0.0-SNAPSHOT -d 
 ```
 
@@ -23,7 +32,7 @@ There is also a `compose` configuration which install the service, Prometheus an
 To run it, use:
 
 ```shell
-docker-compose compose.yaml up -d # or podman-compose
+docker compose compose.yaml up -d # or podman-compose
 ```
 
 ### S3 (MinIO)
@@ -162,10 +171,10 @@ Content-Type: application/json;charset=UTF-8
 #### Scheduled metrics
 
 In order to generate period measurements for a certain metric, you can send a request to the `/metrics/$METRIC/schedule`.
-Looking at the SPD example above if we want the metric to be calculated periodically we would request:
+Looking at the SPD example abov,e if we wanted the metric to be calculated periodically we would request:
 
 ```shell
-curl -X POST --location "http://localhost:8080/metrics/spd/schedule" \
+curl -X POST --location "http://localhost:8080/metrics/spd/request" \
     -H "Content-Type: application/json" \
     -d "{
           \"protectedAttribute\": \"gender\",
@@ -190,13 +199,14 @@ Content-Type: application/json;charset=UTF-8
 ```
 
 The metrics will now be pushed to Prometheus with the runtime provided `METRICS_SCHEDULE` configuration (e.g. `METRICS_SCHEDULE=10s`)
-which follows the Quarkus syntax.
+which follows the [Quarkus syntax](https://quarkus.io/guides/scheduler-reference).
 
-To stop the periodic calculation you can issue a request to the `/metrics/$METRIC/unschedule` endpoint, with the id of periodic task we want to cancel.
+To stop the periodic calculation you can issue an HTTP `DELETE` request to the `/metrics/$METRIC/request` endpoint, with the id of periodic task we want to cancel
+in the payload.
 For instance:
 
 ```shell
-curl -X POST --location "http://{{host}}:8080/metrics/spd/unschedule" \
+curl -X DELETE --location "http://{{host}}:8080/metrics/spd/request" \
     -H "Content-Type: application/json" \
     -d "{
           \"requestId\": \"3281c891-e2a5-4eb3-b05d-7f3831acbb56\"
