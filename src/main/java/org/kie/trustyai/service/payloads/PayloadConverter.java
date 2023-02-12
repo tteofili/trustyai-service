@@ -1,8 +1,9 @@
 package org.kie.trustyai.service.payloads;
 
+import org.kie.trustyai.explainability.model.Value;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
-import org.kie.trustyai.explainability.model.Value;
 
 public class PayloadConverter {
     public static Value convertToValue(JsonNode node) {
