@@ -1,4 +1,4 @@
-package org.kie.trustyai.service.data.readers.exceptions;
+package org.kie.trustyai.service.data.exceptions;
 
 public class DataframeCreateException extends Exception {
     public DataframeCreateException(String errorMessage) {

@@ -17,8 +17,8 @@ import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.kie.trustyai.explainability.model.Dataframe;
 import org.kie.trustyai.service.config.metrics.MetricsConfig;
-import org.kie.trustyai.service.data.readers.MinioReader;
-import org.kie.trustyai.service.data.readers.exceptions.DataframeCreateException;
+import org.kie.trustyai.service.data.DataParser;
+import org.kie.trustyai.service.data.exceptions.DataframeCreateException;
 import org.kie.trustyai.service.payloads.MetricThreshold;
 import org.kie.trustyai.service.payloads.dir.DisparateImpactRationResponse;
 import org.kie.trustyai.service.payloads.scheduler.ScheduleId;
@@ -31,7 +31,7 @@ public class DisparateImpactRatioEndpoint extends AbstractMetricsEndpoint {
 
     private static final Logger LOG = Logger.getLogger(DisparateImpactRatioEndpoint.class);
     @Inject
-    MinioReader dataReader;
+    DataParser dataParser;
 
     @Inject
     MetricsConfig metricsConfig;
@@ -56,7 +56,7 @@ public class DisparateImpactRatioEndpoint extends AbstractMetricsEndpoint {
     @Produces(MediaType.APPLICATION_JSON)
     public Response dir(GroupStatisticalParityDifferenceRequest request) throws DataframeCreateException {
 
-        final Dataframe df = dataReader.asDataframe();
+        final Dataframe df = dataParser.getDataframe();
 
         final double dir = calculator.calculateDIR(df, request);
 
