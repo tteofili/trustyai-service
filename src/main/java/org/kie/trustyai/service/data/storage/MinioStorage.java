@@ -1,10 +1,9 @@
-package org.kie.trustyai.service.data.readers;
+package org.kie.trustyai.service.data.storage;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
+import java.nio.ByteBuffer;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.util.List;
 
 import javax.inject.Singleton;
 
@@ -20,17 +19,13 @@ import io.minio.errors.MinioException;
 import io.minio.errors.ServerException;
 import io.minio.errors.XmlParserException;
 import org.jboss.logging.Logger;
-import org.kie.trustyai.explainability.model.Dataframe;
-import org.kie.trustyai.explainability.model.PredictionInput;
-import org.kie.trustyai.explainability.model.PredictionOutput;
 import org.kie.trustyai.service.config.readers.MinioConfig;
-import org.kie.trustyai.service.data.readers.exceptions.DataframeCreateException;
-import org.kie.trustyai.service.data.readers.utils.CSVUtils;
+import org.kie.trustyai.service.data.exceptions.StorageReadException;
 
 @Singleton
-public class MinioReader implements DataReader {
+public class MinioStorage implements Storage {
 
-    private static final Logger LOG = Logger.getLogger(MinioReader.class);
+    private static final Logger LOG = Logger.getLogger(MinioStorage.class);
 
     private final MinioClient minioClient;
 
@@ -39,7 +34,7 @@ public class MinioReader implements DataReader {
     private final String inputFilename;
     private final String outputFilename;
 
-    public MinioReader(MinioConfig config) {
+    public MinioStorage(MinioConfig config) {
         LOG.info("Starting MinIO storage consumer");
         this.bucketName = config.bucketName();
         this.inputFilename = config.inputFilename();
@@ -69,49 +64,43 @@ public class MinioReader implements DataReader {
         }
     }
 
-    private String readFile(String bucketName, String filename)
+    private byte[] readFile(String bucketName, String filename)
             throws MinioException, IOException, NoSuchAlgorithmException, InvalidKeyException {
-        return new String(minioClient.getObject(
+        return minioClient.getObject(
                         GetObjectArgs.builder()
                                 .bucket(bucketName)
                                 .object(filename)
                                 .build())
-                .readAllBytes(), StandardCharsets.UTF_8);
+                .readAllBytes();
     }
 
-    public Dataframe readData() throws IOException, MinioException, NoSuchAlgorithmException, InvalidKeyException {
-
+    @Override public ByteBuffer getInputData() throws StorageReadException {
         try {
             isObjectAvailable(this.bucketName, this.inputFilename);
         } catch (MinioException e) {
             LOG.error("Input file '" + this.inputFilename + "' at bucket '" + this.bucketName + "' is not available");
-            throw new MinioException(e.getMessage());
+            throw new StorageReadException(e.getMessage());
         }
+        try {
+            return ByteBuffer.wrap(readFile(this.bucketName, this.inputFilename));
+        } catch (MinioException | IOException | NoSuchAlgorithmException | InvalidKeyException e) {
+            LOG.error("Error reading input file");
+            throw new StorageReadException(e.getMessage());
+        }
+    }
 
+    @Override public ByteBuffer getOutputData() throws StorageReadException {
         try {
             isObjectAvailable(this.bucketName, this.outputFilename);
         } catch (MinioException e) {
-            LOG.error("Output file '" + this.inputFilename + "' at bucket '" + this.bucketName + "' is not available");
-            throw new MinioException(e.getMessage());
+            LOG.error("Input file '" + this.outputFilename + "' at bucket '" + this.bucketName + "' is not available");
+            throw new StorageReadException(e.getMessage());
         }
-
-        final String inputs = readFile(this.bucketName, this.inputFilename);
-        final List<PredictionInput> predictionInputs = CSVUtils.parseInputs(inputs);
-        final String outputs = readFile(this.bucketName, this.outputFilename);
-        final List<PredictionOutput> predictionOutputs = CSVUtils.parseOutputs(outputs);
-        return Dataframe.createFrom(predictionInputs, predictionOutputs);
-
-    }
-
-    @Override
-    public Dataframe asDataframe() throws DataframeCreateException {
         try {
-            return readData();
-        } catch (MinioException e) {
-            LOG.error(e.getMessage());
-            throw new DataframeCreateException(e.getMessage());
-        } catch (IOException | NoSuchAlgorithmException | InvalidKeyException e) {
-            throw new DataframeCreateException(e.getMessage());
+            return ByteBuffer.wrap(readFile(this.bucketName, this.outputFilename));
+        } catch (MinioException | IOException | NoSuchAlgorithmException | InvalidKeyException e) {
+            LOG.error("Error reading output file");
+            throw new StorageReadException(e.getMessage());
         }
     }
 }

@@ -1,4 +1,4 @@
-package org.kie.trustyai.service.data.readers.utils;
+package org.kie.trustyai.service.data.utils;
 
 import java.io.IOException;
 import java.io.StringReader;

@@ -5,7 +5,7 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.ext.ExceptionMapper;
 import javax.ws.rs.ext.Provider;
 
-import org.kie.trustyai.service.data.readers.exceptions.DataframeCreateException;
+import org.kie.trustyai.service.data.exceptions.DataframeCreateException;
 
 @Provider
 public class DataframeCreateExceptionMapper implements ExceptionMapper<DataframeCreateException> {
