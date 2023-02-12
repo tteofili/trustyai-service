@@ -8,7 +8,6 @@ import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.kie.trustyai.explainability.metrics.FairnessMetrics;
@@ -16,8 +15,10 @@ import org.kie.trustyai.explainability.model.Dataframe;
 import org.kie.trustyai.explainability.model.Output;
 import org.kie.trustyai.explainability.model.Type;
 import org.kie.trustyai.explainability.model.Value;
-import org.kie.trustyai.service.data.readers.exceptions.DataframeCreateException;
+import org.kie.trustyai.service.config.ServiceConfig;
+import org.kie.trustyai.service.config.metrics.MetricsConfig;
 import org.kie.trustyai.service.data.readers.MinioReader;
+import org.kie.trustyai.service.data.readers.exceptions.DataframeCreateException;
 import org.kie.trustyai.service.payloads.MetricThreshold;
 import org.kie.trustyai.service.payloads.PayloadConverter;
 import org.kie.trustyai.service.payloads.scheduler.ScheduleId;
@@ -40,14 +41,13 @@ public class GroupStatisticalParityDifferenceEndpoint extends AbstractMetricsEnd
     MinioReader dataReader;
 
     @Inject
+    ServiceConfig serviceConfig;
+
+    @Inject
     PrometheusPublisher publisher;
 
-    @ConfigProperty(name = "SPD_THRESHOLD_LOWER", defaultValue = "-0.1")
-    double thresholdLower;
-    @ConfigProperty(name = "SPD_THRESHOLD_UPPER", defaultValue = "0.1")
-    double thresholdUpper;
-    @ConfigProperty(name = "MODEL_NAME")
-    String modelName;
+    @Inject
+    MetricsConfig metricsConfig;
 
     @Inject
     GroupStatisticalParityDifferenceScheduledRequests schedule;
@@ -85,10 +85,13 @@ public class GroupStatisticalParityDifferenceEndpoint extends AbstractMetricsEnd
 
         final double spd = calculate(df, request);
 
-        final MetricThreshold thresholds = new MetricThreshold(thresholdLower, thresholdUpper, spd);
+        LOG.info("Threshold lower: " + metricsConfig.spd().thresholdLower());
+        LOG.info("Threshold upper: " + metricsConfig.spd().thresholdUpper());
+        final MetricThreshold thresholds = new MetricThreshold(
+                metricsConfig.spd().thresholdLower(),
+                metricsConfig.spd().thresholdUpper(), spd);
         final GroupStatisticalParityDifferenceResponse spdObj = new GroupStatisticalParityDifferenceResponse(spd, thresholds);
 
-        //        ObjectMapper mapper = new ObjectMapper();
         return Response.ok(spdObj).build();
     }
 
@@ -130,7 +133,7 @@ public class GroupStatisticalParityDifferenceEndpoint extends AbstractMetricsEnd
         }
     }
 
-    @Scheduled(every = "{METRICS_SCHEDULE}")
+    @Scheduled(every = "{SERVICE_METRICS_SCHEDULE}")
     void calculate() {
 
         try {
@@ -140,7 +143,7 @@ public class GroupStatisticalParityDifferenceEndpoint extends AbstractMetricsEnd
 
                     final double spd = calculate(df, request);
 
-                    publisher.gaugeSPD(request, modelName, uuid, spd);
+                    publisher.gaugeSPD(request, serviceConfig.modelName(), uuid, spd);
                 });
             }
         } catch (DataframeCreateException e) {
