@@ -54,5 +54,20 @@ services:
     #      retries: 3
     volumes:
       - ~/minio/trustyai-service/data:/data
+  logger:
+    container_name: logger
+    image: trustyai/trustyai-service-logger
+    build:
+      context: ./logger
+      dockerfile: ./Dockerfile
+    environment:
+      MINIO_BUCKET_NAME: "inputs"
+      MINIO_ENDPOINT: "minio:9000"
+      MINIO_INPUT_FILENAME: "income-biased-inputs.csv"
+      MINIO_OUTPUT_FILENAME: "income-biased-outputs.csv"
+      MINIO_SECRET_KEY: "minioadmin"
+      MINIO_ACCESS_KEY: "minioadmin"
+      BIAS_RATE: "0.5"
+      PYTHONUNBUFFERED: "1"
 volumes:
   prom_data:
