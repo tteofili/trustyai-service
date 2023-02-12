@@ -4,16 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-import org.kie.trustyai.explainability.model.Dataframe;
-import org.kie.trustyai.explainability.model.Feature;
-import org.kie.trustyai.explainability.model.FeatureFactory;
-import org.kie.trustyai.explainability.model.Output;
-import org.kie.trustyai.explainability.model.Prediction;
-import org.kie.trustyai.explainability.model.PredictionInput;
-import org.kie.trustyai.explainability.model.PredictionOutput;
-import org.kie.trustyai.explainability.model.SimplePrediction;
-import org.kie.trustyai.explainability.model.Type;
-import org.kie.trustyai.explainability.model.Value;
+import org.kie.trustyai.explainability.model.*;
 
 public class RandomReader implements DataReader {
 
@@ -31,8 +22,7 @@ public class RandomReader implements DataReader {
             List<Feature> features = List.of(
                     FeatureFactory.newNumericalFeature("age", random.nextInt(82) + 18),
                     FeatureFactory.newNumericalFeature("race", random.nextInt(7)),
-                    FeatureFactory.newNumericalFeature("gender", gender)
-            );
+                    FeatureFactory.newNumericalFeature("gender", gender));
             // Create biased data
             int income;
             if (gender == 0) {
@@ -41,15 +31,15 @@ public class RandomReader implements DataReader {
                 income = random.nextDouble() < 0.55 ? 1 : 0;
             }
             List<Output> output = List.of(
-                    new Output("income", Type.NUMBER, new Value(income), 1.0)
-            );
+                    new Output("income", Type.NUMBER, new Value(income), 1.0));
             final Prediction prediction = new SimplePrediction(new PredictionInput(features), new PredictionOutput(output));
             predictions.add(prediction);
         }
         return predictions;
     }
 
-    @Override public Dataframe asDataframe() {
+    @Override
+    public Dataframe asDataframe() {
         this.df.addPredictions(generateRandom());
         return this.df;
     }

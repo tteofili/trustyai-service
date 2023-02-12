@@ -4,17 +4,10 @@ import java.util.List;
 import java.util.UUID;
 
 import javax.inject.Inject;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.DELETE;
-import javax.ws.rs.POST;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
+import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.quarkus.scheduler.Scheduled;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestResponse;
@@ -23,6 +16,7 @@ import org.kie.trustyai.explainability.model.Dataframe;
 import org.kie.trustyai.explainability.model.Output;
 import org.kie.trustyai.explainability.model.Type;
 import org.kie.trustyai.explainability.model.Value;
+import org.kie.trustyai.service.data.readers.exceptions.DataframeCreateException;
 import org.kie.trustyai.service.data.readers.MinioReader;
 import org.kie.trustyai.service.payloads.MetricThreshold;
 import org.kie.trustyai.service.payloads.PayloadConverter;
@@ -33,13 +27,17 @@ import org.kie.trustyai.service.payloads.spd.GroupStatisticalParityDifferenceReq
 import org.kie.trustyai.service.payloads.spd.GroupStatisticalParityDifferenceScheduledResponse;
 import org.kie.trustyai.service.prometheus.PrometheusPublisher;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import io.quarkus.scheduler.Scheduled;
+
 @Path("/metrics/dir")
 public class DisparateImpactRatioEndpoint extends AbstractMetricsEndpoint {
 
     private static final Logger LOG = Logger.getLogger(DisparateImpactRatioEndpoint.class);
     @Inject
     MinioReader dataReader;
-
 
     @Inject
     PrometheusPublisher publisher;
@@ -83,7 +81,7 @@ public class DisparateImpactRatioEndpoint extends AbstractMetricsEndpoint {
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public String dir(GroupStatisticalParityDifferenceRequest request) throws JsonProcessingException {
+    public Response dir(GroupStatisticalParityDifferenceRequest request) throws DataframeCreateException {
 
         final Dataframe df = dataReader.asDataframe();
 
@@ -92,9 +90,7 @@ public class DisparateImpactRatioEndpoint extends AbstractMetricsEndpoint {
         final MetricThreshold thresholds = new MetricThreshold(thresholdLower, thresholdUpper, dir);
         final DisparateImpactRationResponse dirObj = new DisparateImpactRationResponse(dir, thresholds);
 
-        ObjectMapper mapper = new ObjectMapper();
-
-        return mapper.writeValueAsString(dirObj);
+        return Response.ok(dirObj).build();
     }
 
     @POST
@@ -137,13 +133,18 @@ public class DisparateImpactRatioEndpoint extends AbstractMetricsEndpoint {
 
     @Scheduled(every = "{METRICS_SCHEDULE}")
     void calculate() {
-        final Dataframe df = dataReader.asDataframe();
-        if (!schedule.getRequests().isEmpty()) {
-            schedule.getRequests().forEach((uuid, request) -> {
 
-                final double dir = calculate(df, request);
-                publisher.gaugeDIR(request, modelName, uuid, dir);
-            });
+        try {
+            final Dataframe df = dataReader.asDataframe();
+            if (!schedule.getRequests().isEmpty()) {
+                schedule.getRequests().forEach((uuid, request) -> {
+
+                    final double dir = calculate(df, request);
+                    publisher.gaugeDIR(request, modelName, uuid, dir);
+                });
+            }
+        } catch (DataframeCreateException e) {
+            LOG.error(e.getMessage());
         }
     }
 

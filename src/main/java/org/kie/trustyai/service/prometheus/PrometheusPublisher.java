@@ -6,13 +6,15 @@ import java.util.UUID;
 
 import javax.inject.Singleton;
 
+import org.jboss.logging.Logger;
+import org.kie.trustyai.service.payloads.spd.GroupStatisticalParityDifferenceRequest;
+
 import com.google.common.util.concurrent.AtomicDouble;
+
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tag;
 import io.micrometer.core.instrument.Tags;
-import org.jboss.logging.Logger;
-import org.kie.trustyai.service.payloads.spd.GroupStatisticalParityDifferenceRequest;
 
 @Singleton
 public class PrometheusPublisher {

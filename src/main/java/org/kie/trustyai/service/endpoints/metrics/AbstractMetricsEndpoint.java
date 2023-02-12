@@ -7,5 +7,5 @@ public abstract class AbstractMetricsEndpoint {
     }
 
     public abstract String getMetricName();
-    
+
 }
