@@ -47,23 +47,23 @@ the [steps below](#s3-minio))
 and run the container using (either `docker`, `podman`):
 
 ```shell
-docker run -p 8080:8080 --env STORAGE_FORMAT=CSV \
-    --env MODEL_NAME=example \
-    --env KSERVE_TARGET=localhost \
-    --env STORAGE_FORMAT="MINIO" \
+docker run -p 8080:8080 \
+    --env SERVICE_STORAGE_FORMAT=CSV \
+    --env SERVICE_MODEL_NAME=example \
+    --env SERVICE_STORAGE_FORMAT="MINIO" \
     --env MINIO_BUCKET_NAME="inputs" \
     --env MINIO_ENDPOINT="http://localhost:9000" \
     --env MINIO_INPUT_FILENAME="income-biased-inputs.csv" \
     --env MINIO_OUTPUT_FILENAME="income-biased-outputs.csv" \
     --env MINIO_SECRET_KEY="minioadmin" \
     --env MINIO_ACCESS_KEY="minioadmin" \
-    --env METRICS_SCHEDULE="5s" \
+    --env SERVICE_METRICS_SCHEDULE="5s" \
     trustyai/trustyai-service:1.0.0-SNAPSHOT -d 
 ```
 
 ### S3 (MinIO)
 
-In order to setup MinIO for local development, first install the [MinIO client](https://github.com/minio/mc) `mc`.
+In order to set up MinIO for local development, first install the [MinIO client](https://github.com/minio/mc) `mc`.
 Run the MinIO server with
 
 ```shell
@@ -117,11 +117,12 @@ curl -X GET --location "http://localhost:8080/q/openapi"
 
 ### Metrics
 
-Each of the metrics default bounds can be overriden with
+Each of the metrics default bounds can be overridden with
 the corresponding environment variable, e.g.
 
-- `SPD_THRESHOLD_LOWER`
-- `SPD_THRESHOLD_UPPER`
+- `METRICS_SPD_THRESHOLD_LOWER`
+- `METRICS_SPD_THRESHOLD_UPPER`
+- `METRICS_DIR_THRESHOLD_LOWER`
 - _etc_
 
 #### Statistical Parity Difference
@@ -224,8 +225,8 @@ Content-Type: application/json;charset=UTF-8
 }
 ```
 
-The metrics will now be pushed to Prometheus with the runtime provided `METRICS_SCHEDULE` configuration (
-e.g. `METRICS_SCHEDULE=10s`)
+The metrics will now be pushed to Prometheus with the runtime provided `SERVICE_METRICS_SCHEDULE` configuration (
+e.g. `SERVICE_METRICS_SCHEDULE=10s`)
 which follows the [Quarkus syntax](https://quarkus.io/guides/scheduler-reference).
 
 To stop the periodic calculation you can issue an HTTP `DELETE` request to the `/metrics/$METRIC/request` endpoint, with the id
@@ -277,20 +278,24 @@ of converting any type of data source (flat file on PVC, S3, database, _etc_) in
 
 The type of datasource is passed with the environment variable `STORAGE_FORMAT`.
 
-For demo purposes we abstract the data source to `STORAGE_FORMAT=RANDOM_TEST`
+For demo purposes we abstract the data source to `SERVICE_STORAGE_FORMAT=RANDOM_TEST`
 which generates in memory new data points for each request.
+
+The supported data sources are:
+
+- MinIO
 
 ## Explainers
 
-An explainer can be linked to the service using the enviroment
-variables `KSERVE_TARGET` and `MODEL_NAME`.
+An explainer can be linked to the service using the environment
+variables `SERVICE_KSERVE_TARGET` and `SERVICE_MODEL_NAME`.
 These will be used by the service's gRPC client which can natively
 query KServe and ModelMesh using that endpoint.
 
 # Deployment
 
 To deploy in Kubernetes or OpenShift, the connection information
-can be passed in the manifest as enviroment variables:
+can be passed in the manifest as environment variables:
 
 ```yaml
 apiVersion: apps/v1
