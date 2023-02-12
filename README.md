@@ -273,17 +273,21 @@ trustyai_spd{
 
 ## Metrics
 
-Data source extend the base `AbstractDataReader` which has the responsibility
-of converting any type of data source (flat file on PVC, S3, database, _etc_) into a TrustyAI `Dataframe`.
+Storage backend adapters implement the `Storage` interface which has the responsibility
+of reading the data from a specific storage type (flat file on PVC, S3, database, _etc_)
+and return the inputs and outputs as `ByteBuffer`.
+From there, the service converts the `ByteBuffer` into a TrustyAI `Dataframe` to be used
+in the metrics calculations.
 
-The type of datasource is passed with the environment variable `STORAGE_FORMAT`.
-
-For demo purposes we abstract the data source to `SERVICE_STORAGE_FORMAT=RANDOM_TEST`
-which generates in memory new data points for each request.
+The type of datasource is passed with the environment variable `SERVICE_STORAGE_FORMAT`.
 
 The supported data sources are:
 
 - MinIO
+
+The data can be batched into the latest `n` observations by using the configuration key
+`SERVICE_BATCH_SIZE=n`. This behaves like a `n`-size tail and its optional.
+If not specified, the entire dataset is used.
 
 ## Explainers
 
