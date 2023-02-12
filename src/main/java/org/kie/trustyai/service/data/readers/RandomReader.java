@@ -4,7 +4,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-import org.kie.trustyai.explainability.model.*;
+import org.kie.trustyai.explainability.model.Dataframe;
+import org.kie.trustyai.explainability.model.Feature;
+import org.kie.trustyai.explainability.model.FeatureFactory;
+import org.kie.trustyai.explainability.model.Output;
+import org.kie.trustyai.explainability.model.Prediction;
+import org.kie.trustyai.explainability.model.PredictionInput;
+import org.kie.trustyai.explainability.model.PredictionOutput;
+import org.kie.trustyai.explainability.model.SimplePrediction;
+import org.kie.trustyai.explainability.model.Type;
+import org.kie.trustyai.explainability.model.Value;
 
 public class RandomReader implements DataReader {
 
