@@ -4,13 +4,46 @@
 
 ### Locally
 
-Build the container image with
+The demo consists of a "data logger", which writes data inputs and outputs to
+a MinIO bucket, the TrustyAI service, Prometheus and Grafana.
+
+Build the TrustyAI service container image with:
 
 ```shell
 mvn clean install
 ```
 
-Configure the MinIO container (by pre-populating it with data, according to the [steps below](#s3-minio))
+Build the remaining images using:
+
+```shell
+$ cd demo
+$ docker compose build
+```
+
+Finally, run the demo using:
+
+```shell
+$ docker compose up
+```
+
+Issue a metric request to, for instance:
+
+```shell
+curl -X POST --location "http://localhost:8080/metrics/spd/request" \
+    -H "Content-Type: application/json" \
+    -d "{
+          \"protectedAttribute\": \"gender\",
+          \"favorableOutcome\": 1,
+          \"outcomeName\": \"income\",
+          \"privilegedAttribute\": 1,
+          \"unprivilegedAttribute\": 0
+        }"
+```
+
+And observe the `trustyai_spd` metric in Prometheus: http://localhost:9090
+
+To use your own provided data, configure the MinIO container (by pre-populating it with data, according to
+the [steps below](#s3-minio))
 and run the container using (either `docker`, `podman`):
 
 ```shell
@@ -26,13 +59,6 @@ docker run -p 8080:8080 --env STORAGE_FORMAT=CSV \
     --env MINIO_ACCESS_KEY="minioadmin" \
     --env METRICS_SCHEDULE="5s" \
     trustyai/trustyai-service:1.0.0-SNAPSHOT -d 
-```
-
-There is also a `compose` configuration which install the service, Prometheus and Grafana.
-To run it, use:
-
-```shell
-docker compose compose.yaml up -d # or podman-compose
 ```
 
 ### S3 (MinIO)
@@ -198,10 +224,12 @@ Content-Type: application/json;charset=UTF-8
 }
 ```
 
-The metrics will now be pushed to Prometheus with the runtime provided `METRICS_SCHEDULE` configuration (e.g. `METRICS_SCHEDULE=10s`)
+The metrics will now be pushed to Prometheus with the runtime provided `METRICS_SCHEDULE` configuration (
+e.g. `METRICS_SCHEDULE=10s`)
 which follows the [Quarkus syntax](https://quarkus.io/guides/scheduler-reference).
 
-To stop the periodic calculation you can issue an HTTP `DELETE` request to the `/metrics/$METRIC/request` endpoint, with the id of periodic task we want to cancel
+To stop the periodic calculation you can issue an HTTP `DELETE` request to the `/metrics/$METRIC/request` endpoint, with the id
+of periodic task we want to cancel
 in the payload.
 For instance:
 
@@ -227,11 +255,17 @@ Each Prometheus metric is scoped to a specific `model` and attributes using tags
 For instance, for the SPD metric request above we would have a metric:
 
 ```
-trustyai_spd{instance="trustyai:8080", 
+trustyai_spd{
+    favorable_value="1", 
+    instance="trustyai:8080", 
     job="trustyai-service", 
     model="example", 
     outcome="income", 
-    protected="gender"}
+    privileged="1", 
+    protected="gender", 
+    request="e4bf1430-cc33-48a0-97ce-4d0c8b2c91f0", 
+    unprivileged="0"
+}
 ```
 
 # Data sources
