@@ -8,7 +8,6 @@ import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.kie.trustyai.explainability.metrics.FairnessMetrics;
@@ -16,8 +15,10 @@ import org.kie.trustyai.explainability.model.Dataframe;
 import org.kie.trustyai.explainability.model.Output;
 import org.kie.trustyai.explainability.model.Type;
 import org.kie.trustyai.explainability.model.Value;
-import org.kie.trustyai.service.data.readers.exceptions.DataframeCreateException;
+import org.kie.trustyai.service.config.ServiceConfig;
+import org.kie.trustyai.service.config.metrics.MetricsConfig;
 import org.kie.trustyai.service.data.readers.MinioReader;
+import org.kie.trustyai.service.data.readers.exceptions.DataframeCreateException;
 import org.kie.trustyai.service.payloads.MetricThreshold;
 import org.kie.trustyai.service.payloads.PayloadConverter;
 import org.kie.trustyai.service.payloads.dir.DisparateImpactRationResponse;
@@ -40,16 +41,13 @@ public class DisparateImpactRatioEndpoint extends AbstractMetricsEndpoint {
     MinioReader dataReader;
 
     @Inject
+    ServiceConfig serviceConfig;
+
+    @Inject
+    MetricsConfig metricsConfig;
+
+    @Inject
     PrometheusPublisher publisher;
-
-    @ConfigProperty(name = "DIR_THRESHOLD_LOWER", defaultValue = "0.8")
-    double thresholdLower;
-
-    @ConfigProperty(name = "DIR_THRESHOLD_UPPER", defaultValue = "1.2")
-    double thresholdUpper;
-
-    @ConfigProperty(name = "MODEL_NAME")
-    String modelName;
 
     @Inject
     DisparateImpactRatioScheduledRequests schedule;
@@ -87,7 +85,7 @@ public class DisparateImpactRatioEndpoint extends AbstractMetricsEndpoint {
 
         final double dir = calculate(df, request);
 
-        final MetricThreshold thresholds = new MetricThreshold(thresholdLower, thresholdUpper, dir);
+        final MetricThreshold thresholds = new MetricThreshold(metricsConfig.dir().thresholdLower(), metricsConfig.dir().thresholdUpper(), dir);
         final DisparateImpactRationResponse dirObj = new DisparateImpactRationResponse(dir, thresholds);
 
         return Response.ok(dirObj).build();
@@ -131,7 +129,7 @@ public class DisparateImpactRatioEndpoint extends AbstractMetricsEndpoint {
         }
     }
 
-    @Scheduled(every = "{METRICS_SCHEDULE}")
+    @Scheduled(every = "{SERVICE_METRICS_SCHEDULE}")
     void calculate() {
 
         try {
@@ -140,7 +138,7 @@ public class DisparateImpactRatioEndpoint extends AbstractMetricsEndpoint {
                 schedule.getRequests().forEach((uuid, request) -> {
 
                     final double dir = calculate(df, request);
-                    publisher.gaugeDIR(request, modelName, uuid, dir);
+                    publisher.gaugeDIR(request, serviceConfig.modelName(), uuid, dir);
                 });
             }
         } catch (DataframeCreateException e) {

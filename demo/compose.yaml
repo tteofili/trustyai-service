@@ -5,16 +5,16 @@ services:
     ports:
       - "8080:8080"
     environment:
-      MODEL_NAME: "example"
-      KSERVE_TARGET: "localhost"
-      STORAGE_FORMAT: "MINIO"
+      SERVICE_MODEL_NAME: "example"
+      SERVICE_KSERVE_TARGET: "localhost"
+      SERVICE_STORAGE_FORMAT: "MINIO"
       MINIO_BUCKET_NAME: "inputs"
       MINIO_ENDPOINT: "http://minio:9000"
       MINIO_INPUT_FILENAME: "income-biased-inputs.csv"
       MINIO_OUTPUT_FILENAME: "income-biased-outputs.csv"
       MINIO_SECRET_KEY: "minioadmin"
       MINIO_ACCESS_KEY: "minioadmin"
-      METRICS_SCHEDULE: "5s"
+      SERVICE_METRICS_SCHEDULE: "5s"
   prometheus:
     image: prom/prometheus
     container_name: prometheus

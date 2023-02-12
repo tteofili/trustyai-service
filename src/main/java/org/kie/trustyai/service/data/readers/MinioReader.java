@@ -8,11 +8,11 @@ import java.util.List;
 
 import javax.inject.Singleton;
 
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.kie.trustyai.explainability.model.Dataframe;
 import org.kie.trustyai.explainability.model.PredictionInput;
 import org.kie.trustyai.explainability.model.PredictionOutput;
+import org.kie.trustyai.service.config.readers.MinioConfig;
 import org.kie.trustyai.service.data.readers.exceptions.DataframeCreateException;
 import org.kie.trustyai.service.data.readers.utils.CSVUtils;
 
@@ -34,22 +34,17 @@ public class MinioReader implements DataReader {
     private final String inputFilename;
     private final String outputFilename;
 
-    public MinioReader(@ConfigProperty(name = "MINIO_ENDPOINT") String endpoint,
-            @ConfigProperty(name = "MINIO_BUCKET_NAME", defaultValue = "inputs") String bucketName,
-            @ConfigProperty(name = "MINIO_INPUT_FILENAME") String inputFilename,
-            @ConfigProperty(name = "MINIO_OUTPUT_FILENAME") String outputFilename,
-            @ConfigProperty(name = "MINIO_ACCESS_KEY") String accessKey,
-            @ConfigProperty(name = "MINIO_SECRET_KEY") String secretKey) {
+    public MinioReader(MinioConfig config) {
         LOG.info("Starting MinIO storage consumer");
-        this.bucketName = bucketName;
-        this.inputFilename = inputFilename;
-        this.outputFilename = outputFilename;
-        LOG.info("MinIO data location: endpoint=" + endpoint + ", bucket=" + bucketName + ", input file=" + inputFilename
+        this.bucketName = config.bucketName();
+        this.inputFilename = config.inputFilename();
+        this.outputFilename = config.outputFilename();
+        LOG.info("MinIO data location: endpoint=" + config.endpoint() + ", bucket=" + bucketName + ", input file=" + inputFilename
                 + ", output filename=" + outputFilename);
         this.minioClient =
                 MinioClient.builder()
-                        .endpoint(endpoint)
-                        .credentials(accessKey, secretKey)
+                        .endpoint(config.endpoint())
+                        .credentials(config.accessKey(), config.secretKey())
                         .build();
     }
 
