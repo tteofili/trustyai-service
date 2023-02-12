@@ -8,6 +8,17 @@ import java.util.List;
 
 import javax.inject.Singleton;
 
+import io.minio.GetObjectArgs;
+import io.minio.MinioClient;
+import io.minio.StatObjectArgs;
+import io.minio.StatObjectResponse;
+import io.minio.errors.ErrorResponseException;
+import io.minio.errors.InsufficientDataException;
+import io.minio.errors.InternalException;
+import io.minio.errors.InvalidResponseException;
+import io.minio.errors.MinioException;
+import io.minio.errors.ServerException;
+import io.minio.errors.XmlParserException;
 import org.jboss.logging.Logger;
 import org.kie.trustyai.explainability.model.Dataframe;
 import org.kie.trustyai.explainability.model.PredictionInput;
@@ -15,12 +26,6 @@ import org.kie.trustyai.explainability.model.PredictionOutput;
 import org.kie.trustyai.service.config.readers.MinioConfig;
 import org.kie.trustyai.service.data.readers.exceptions.DataframeCreateException;
 import org.kie.trustyai.service.data.readers.utils.CSVUtils;
-
-import io.minio.GetObjectArgs;
-import io.minio.MinioClient;
-import io.minio.StatObjectArgs;
-import io.minio.StatObjectResponse;
-import io.minio.errors.*;
 
 @Singleton
 public class MinioReader implements DataReader {
@@ -39,7 +44,8 @@ public class MinioReader implements DataReader {
         this.bucketName = config.bucketName();
         this.inputFilename = config.inputFilename();
         this.outputFilename = config.outputFilename();
-        LOG.info("MinIO data location: endpoint=" + config.endpoint() + ", bucket=" + bucketName + ", input file=" + inputFilename
+        LOG.info("MinIO data location: endpoint=" + config.endpoint() + ", bucket=" + bucketName + ", input file="
+                + inputFilename
                 + ", output filename=" + outputFilename);
         this.minioClient =
                 MinioClient.builder()
@@ -48,7 +54,8 @@ public class MinioReader implements DataReader {
                         .build();
     }
 
-    private StatObjectResponse getObjectStats(String bucket, String filename) throws ServerException, InsufficientDataException, ErrorResponseException, IOException, NoSuchAlgorithmException,
+    private StatObjectResponse getObjectStats(String bucket, String filename)
+            throws ServerException, InsufficientDataException, ErrorResponseException, IOException, NoSuchAlgorithmException,
             InvalidKeyException, InvalidResponseException, XmlParserException, InternalException {
         return minioClient.statObject(
                 StatObjectArgs.builder().bucket(bucket).object(filename).build());
@@ -62,12 +69,13 @@ public class MinioReader implements DataReader {
         }
     }
 
-    private String readFile(String bucketName, String filename) throws MinioException, IOException, NoSuchAlgorithmException, InvalidKeyException {
+    private String readFile(String bucketName, String filename)
+            throws MinioException, IOException, NoSuchAlgorithmException, InvalidKeyException {
         return new String(minioClient.getObject(
-                GetObjectArgs.builder()
-                        .bucket(bucketName)
-                        .object(filename)
-                        .build())
+                        GetObjectArgs.builder()
+                                .bucket(bucketName)
+                                .object(filename)
+                                .build())
                 .readAllBytes(), StandardCharsets.UTF_8);
     }
 

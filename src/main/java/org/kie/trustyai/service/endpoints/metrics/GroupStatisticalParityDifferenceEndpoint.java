@@ -1,37 +1,30 @@
 package org.kie.trustyai.service.endpoints.metrics;
 
-import java.util.List;
 import java.util.UUID;
 
 import javax.inject.Inject;
-import javax.ws.rs.*;
+import javax.ws.rs.Consumes;
+import javax.ws.rs.DELETE;
+import javax.ws.rs.POST;
+import javax.ws.rs.Path;
+import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestResponse;
-import org.kie.trustyai.explainability.metrics.FairnessMetrics;
 import org.kie.trustyai.explainability.model.Dataframe;
-import org.kie.trustyai.explainability.model.Output;
-import org.kie.trustyai.explainability.model.Type;
-import org.kie.trustyai.explainability.model.Value;
-import org.kie.trustyai.service.config.ServiceConfig;
 import org.kie.trustyai.service.config.metrics.MetricsConfig;
 import org.kie.trustyai.service.data.readers.MinioReader;
 import org.kie.trustyai.service.data.readers.exceptions.DataframeCreateException;
 import org.kie.trustyai.service.payloads.MetricThreshold;
-import org.kie.trustyai.service.payloads.PayloadConverter;
 import org.kie.trustyai.service.payloads.scheduler.ScheduleId;
 import org.kie.trustyai.service.payloads.spd.GroupStatisticalParityDifferenceRequest;
 import org.kie.trustyai.service.payloads.spd.GroupStatisticalParityDifferenceResponse;
-import org.kie.trustyai.service.payloads.spd.GroupStatisticalParityDifferenceScheduledRequests;
 import org.kie.trustyai.service.payloads.spd.GroupStatisticalParityDifferenceScheduledResponse;
-import org.kie.trustyai.service.prometheus.PrometheusPublisher;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
-import io.quarkus.scheduler.Scheduled;
+import org.kie.trustyai.service.prometheus.PrometheusScheduler;
 
 @Path("/metrics/spd")
 public class GroupStatisticalParityDifferenceEndpoint extends AbstractMetricsEndpoint {
@@ -41,16 +34,13 @@ public class GroupStatisticalParityDifferenceEndpoint extends AbstractMetricsEnd
     MinioReader dataReader;
 
     @Inject
-    ServiceConfig serviceConfig;
+    PrometheusScheduler scheduler;
 
     @Inject
-    PrometheusPublisher publisher;
+    MetricsCalculator calculator;
 
     @Inject
     MetricsConfig metricsConfig;
-
-    @Inject
-    GroupStatisticalParityDifferenceScheduledRequests schedule;
 
     GroupStatisticalParityDifferenceEndpoint() {
         super();
@@ -61,21 +51,6 @@ public class GroupStatisticalParityDifferenceEndpoint extends AbstractMetricsEnd
         return "spd";
     }
 
-    public double calculate(Dataframe dataframe, GroupStatisticalParityDifferenceRequest request) {
-        final int protectedIndex = dataframe.getColumnNames().indexOf(request.getProtectedAttribute());
-
-        final Value privilegedAttr = PayloadConverter.convertToValue(request.getPrivilegedAttribute());
-
-        final Dataframe privileged = dataframe.filterByColumnValue(protectedIndex,
-                value -> value.equals(privilegedAttr));
-        final Value unprivilegedAttr = PayloadConverter.convertToValue(request.getUnprivilegedAttribute());
-        final Dataframe unprivileged = dataframe.filterByColumnValue(protectedIndex,
-                value -> value.equals(unprivilegedAttr));
-        final Value favorableOutcomeAttr = PayloadConverter.convertToValue(request.getFavorableOutcome());
-        return FairnessMetrics.groupStatisticalParityDifference(privileged, unprivileged,
-                List.of(new Output(request.getOutcomeName(), Type.NUMBER, favorableOutcomeAttr, 1.0)));
-    }
-
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
@@ -83,10 +58,8 @@ public class GroupStatisticalParityDifferenceEndpoint extends AbstractMetricsEnd
 
         final Dataframe df = dataReader.asDataframe();
 
-        final double spd = calculate(df, request);
+        final double spd = calculator.calculateSPD(df, request);
 
-        LOG.info("Threshold lower: " + metricsConfig.spd().thresholdLower());
-        LOG.info("Threshold upper: " + metricsConfig.spd().thresholdUpper());
         final MetricThreshold thresholds = new MetricThreshold(
                 metricsConfig.spd().thresholdLower(),
                 metricsConfig.spd().thresholdUpper(), spd);
@@ -101,17 +74,14 @@ public class GroupStatisticalParityDifferenceEndpoint extends AbstractMetricsEnd
     @Path("/request")
     public String createaRequest(GroupStatisticalParityDifferenceRequest request) throws JsonProcessingException {
 
-        final UUID requestId = UUID.randomUUID();
+        final UUID id = UUID.randomUUID();
 
-        schedule.getRequests().put(requestId, request);
+        scheduler.registerSPD(id, request);
 
         final GroupStatisticalParityDifferenceScheduledResponse response =
-                new GroupStatisticalParityDifferenceScheduledResponse(requestId);
-
-        calculate();
+                new GroupStatisticalParityDifferenceScheduledResponse(id);
 
         ObjectMapper mapper = new ObjectMapper();
-
         return mapper.writeValueAsString(response);
     }
 
@@ -123,31 +93,13 @@ public class GroupStatisticalParityDifferenceEndpoint extends AbstractMetricsEnd
 
         final UUID id = request.requestId;
 
-        if (schedule.getRequests().containsKey(id)) {
-            schedule.getRequests().remove(request.requestId);
+        if (scheduler.getSpdRequests().containsKey(id)) {
+            scheduler.getSpdRequests().remove(request.requestId);
             LOG.info("Removing scheduled request id=" + id);
             return RestResponse.ResponseBuilder.ok("Removed").build().toResponse();
         } else {
             LOG.error("Scheduled request id=" + id + " not found");
             return RestResponse.ResponseBuilder.notFound().build().toResponse();
-        }
-    }
-
-    @Scheduled(every = "{SERVICE_METRICS_SCHEDULE}")
-    void calculate() {
-
-        try {
-            final Dataframe df = dataReader.asDataframe();
-            if (!schedule.getRequests().isEmpty()) {
-                schedule.getRequests().forEach((uuid, request) -> {
-
-                    final double spd = calculate(df, request);
-
-                    publisher.gaugeSPD(request, serviceConfig.modelName(), uuid, spd);
-                });
-            }
-        } catch (DataframeCreateException e) {
-            LOG.error(e.getMessage());
         }
     }
 

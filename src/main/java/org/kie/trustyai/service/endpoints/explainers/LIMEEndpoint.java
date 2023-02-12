@@ -10,12 +10,17 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import org.kie.trustyai.connectors.kserve.v2.KServeV2GRPCPredictionProvider;
 import org.kie.trustyai.explainability.local.lime.LimeExplainer;
-import org.kie.trustyai.explainability.model.*;
+import org.kie.trustyai.explainability.model.FeatureFactory;
+import org.kie.trustyai.explainability.model.Prediction;
+import org.kie.trustyai.explainability.model.PredictionInput;
+import org.kie.trustyai.explainability.model.PredictionOutput;
+import org.kie.trustyai.explainability.model.PredictionProvider;
+import org.kie.trustyai.explainability.model.SaliencyResults;
+import org.kie.trustyai.explainability.model.SimplePrediction;
 import org.kie.trustyai.service.config.ServiceConfig;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
 
 @Path("/lime")
 public class LIMEEndpoint {
