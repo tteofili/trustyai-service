@@ -41,39 +41,43 @@ public class PrometheusScheduler {
     @Scheduled(every = "{SERVICE_METRICS_SCHEDULE}")
     void calculate() {
 
-        try {
-            final Dataframe df = dataParser.getDataframe();
+        if (hasRequests()) {
+            try {
+                final Dataframe df = dataParser.getDataframe();
 
-            // SPD requests
-            if (!spdRequests.isEmpty()) {
-                spdRequests.forEach((uuid, request) -> {
+                // SPD requests
+                if (!spdRequests.isEmpty()) {
+                    spdRequests.forEach((uuid, request) -> {
 
-                    final double spd = calculator.calculateSPD(df, request);
+                        final double spd = calculator.calculateSPD(df, request);
 
-                    publisher.gaugeSPD(request, serviceConfig.modelName(), uuid, spd);
-                });
+                        publisher.gaugeSPD(request, serviceConfig.modelName(), uuid, spd);
+                    });
+                }
+
+                // DIR requests
+                if (!dirRequests.isEmpty()) {
+                    dirRequests.forEach((uuid, request) -> {
+
+                        final double dir = calculator.calculateDIR(df, request);
+                        publisher.gaugeDIR(request, serviceConfig.modelName(), uuid, dir);
+                    });
+                }
+            } catch (DataframeCreateException e) {
+                LOG.error(e.getMessage());
             }
-
-            // DIR requests
-            if (!dirRequests.isEmpty()) {
-                dirRequests.forEach((uuid, request) -> {
-
-                    final double dir = calculator.calculateDIR(df, request);
-                    publisher.gaugeDIR(request, serviceConfig.modelName(), uuid, dir);
-                });
-            }
-        } catch (DataframeCreateException e) {
-            LOG.error(e.getMessage());
         }
     }
 
     public void registerSPD(UUID id, GroupStatisticalParityDifferenceRequest request) {
         spdRequests.put(id, request);
-
     }
 
     public void registerDIR(UUID id, GroupStatisticalParityDifferenceRequest request) {
         dirRequests.put(id, request);
+    }
 
+    public boolean hasRequests() {
+        return !(spdRequests.isEmpty() && dirRequests.isEmpty());
     }
 }
